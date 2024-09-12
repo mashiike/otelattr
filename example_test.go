@@ -1,9 +1,4 @@
-# otelattr
-
-## Usage 
-
-```golang
-package main
+package otelattr_test
 
 import (
 	"encoding/json"
@@ -12,13 +7,12 @@ import (
 	"github.com/mashiike/otelattr"
 )
 
-type HTTPContext struct {
+func Example() {
+	type HTTPContext struct {
 		Status int    `otelattr:"http.status_code"`
 		Method string `otelattr:"http.method"`
 		Path   string `otelattr:"http.path"`
-}
-
-func main() {
+	}
 	httpCtx := HTTPContext{
 		Status: 200,
 		Method: "GET",
@@ -39,6 +33,3 @@ func main() {
 	//{"Key":"http.method","Value":{"Type":"STRING","Value":"GET"}}
 	//{"Key":"http.path","Value":{"Type":"STRING","Value":"/"}}
 }
-```
-
-LICENSE: MIT
