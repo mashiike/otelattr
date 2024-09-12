@@ -10,8 +10,6 @@ type structFiled struct {
 	filedName       string
 	filedIndex      int
 	omitEmpty       bool
-	isPtr           bool
-	isStruct        bool
 	attributePrefix string
 }
 
@@ -45,22 +43,12 @@ func getStructFields(t reflect.Type) []structFiled {
 				omitEmpty = true
 			}
 		}
-		ft := f.Type
-		var isStruct bool
-		if ft.Kind() == reflect.Ptr {
-			ft = ft.Elem()
-		}
-		if ft.Kind() == reflect.Struct {
-			isStruct = true
-		}
 
 		fields = append(fields, structFiled{
 			attributeName:   attributeName,
 			filedName:       f.Name,
 			filedIndex:      i,
 			omitEmpty:       omitEmpty,
-			isPtr:           f.Type.Kind() == reflect.Ptr,
-			isStruct:        isStruct,
 			attributePrefix: attributePrefix,
 		})
 	}

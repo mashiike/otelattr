@@ -28,9 +28,135 @@ func marshalOtelAttributes(rv reflect.Value) ([]attribute.KeyValue, error) {
 		return marshalOtelAttributes(rv.Elem())
 	case reflect.Interface:
 		return marshalOtelAttributes(rv.Elem())
+	case reflect.Map:
+		return marshalMap(rv)
 	default:
 		return nil, fmt.Errorf("unsupported type %s", rv.Type())
 	}
+}
+
+func marshalMap(rv reflect.Value) ([]attribute.KeyValue, error) {
+	keys := rv.MapKeys()
+	if len(keys) == 0 {
+		return []attribute.KeyValue{}, nil
+	}
+	if keys[0].Kind() != reflect.String {
+		return nil, fmt.Errorf("unsupport map key type %s", keys[0].Type())
+	}
+	attrs := make([]attribute.KeyValue, 0, len(keys))
+	for index, key := range keys {
+		mv := rv.MapIndex(key)
+		keyString := key.String()
+		switch value := mv.Interface().(type) {
+		case bool:
+			attrs = append(attrs, attribute.Bool(keyString, value))
+		case int:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case int8:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case int16:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case int32:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case int64:
+			attrs = append(attrs, attribute.Int64(keyString, value))
+		case uint:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case uint8:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case uint16:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case uint32:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case uint64:
+			attrs = append(attrs, attribute.Int64(keyString, (int64)(value)))
+		case float32:
+			attrs = append(attrs, attribute.Float64(keyString, (float64)(value)))
+		case float64:
+			attrs = append(attrs, attribute.Float64(keyString, value))
+		case string:
+			attrs = append(attrs, attribute.String(keyString, value))
+		case []bool:
+			attrs = append(attrs, attribute.BoolSlice(keyString, value))
+		case []int:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []int8:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []int16:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []int32:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []int64:
+			attrs = append(attrs, attribute.Int64Slice(keyString, value))
+		case []uint:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []uint8:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []uint16:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []uint32:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []uint64:
+			s := make([]int64, len(value))
+			for i, v := range value {
+				s[i] = int64(v)
+			}
+			attrs = append(attrs, attribute.Int64Slice(keyString, s))
+		case []float32:
+			s := make([]float64, len(value))
+			for i, v := range value {
+				s[i] = float64(v)
+			}
+			attrs = append(attrs, attribute.Float64Slice(keyString, s))
+		case []float64:
+			attrs = append(attrs, attribute.Float64Slice(keyString, value))
+		case []string:
+			attrs = append(attrs, attribute.StringSlice(keyString, value))
+		default:
+			kvs, err := marshalField(structFiled{
+				attributeName:   keyString,
+				filedIndex:      index,
+				attributePrefix: keyString + ".",
+			}, reflect.ValueOf(value))
+			if err != nil {
+				return nil, err
+			}
+			attrs = append(attrs, kvs...)
+		}
+	}
+	return attrs, nil
 }
 
 func marshalStruct(rv reflect.Value) ([]attribute.KeyValue, error) {
@@ -63,8 +189,22 @@ func marshalField(f structFiled, fv reflect.Value) ([]attribute.KeyValue, error)
 		return []attribute.KeyValue{attribute.Float64(f.attributeName, fv.Float())}, nil
 	case reflect.String:
 		return []attribute.KeyValue{attribute.String(f.attributeName, fv.String())}, nil
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		return marshalSlice(f, fv)
+	case reflect.Struct:
+		kvs, err := MarshalOtelAttributes(fv.Interface())
+		if err != nil {
+			return nil, err
+		}
+		for i := range kvs {
+			kvs[i].Key = attribute.Key(f.attributePrefix) + kvs[i].Key
+		}
+		return kvs, nil
+	case reflect.Ptr:
+		if fv.IsNil() {
+			return nil, nil
+		}
+		return marshalField(f, fv.Elem())
 	default:
 		bs, err := json.Marshal(fv.Interface())
 		if err != nil {
@@ -97,8 +237,10 @@ func marshalSlice(f structFiled, fv reflect.Value) ([]attribute.KeyValue, error)
 
 func reflectValueToSlice[T any](v reflect.Value) []T {
 	slice := make([]T, v.Len())
+	var zero T
+	rt := reflect.TypeOf(zero)
 	for i := 0; i < v.Len(); i++ {
-		slice[i] = v.Index(i).Interface().(T)
+		slice[i] = v.Index(i).Convert(rt).Interface().(T)
 	}
 	return slice
 }
