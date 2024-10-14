@@ -6,7 +6,7 @@ toolchain go1.22.7
 
 require (
 	github.com/stretchr/testify v1.9.0
-	go.opentelemetry.io/otel v1.30.0
+	go.opentelemetry.io/otel v1.31.0
 )
 
 require (
